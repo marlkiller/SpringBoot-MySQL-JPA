@@ -1,0 +1,15 @@
+etl:
+  odb:
+    bcustomer:
+      path: /Users/voidm/Desktop/tmp/123.csv
+spring:
+  jpa:
+    database: mysql
+    show-sql: false
+    hibernate:
+      ddl-auto: update
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    jdbcUrl: jdbc:mysql://voidm.com:3306/ikea_log
+    username: ikea_log
+    password: 363636
