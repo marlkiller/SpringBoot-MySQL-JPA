@@ -5,6 +5,8 @@ import java.sql.Timestamp;
 import java.util.Objects;
 
 /**
+ * bcustomer实体类
+ *
  * @author voidm
  * @date 2019-04-24
  */
