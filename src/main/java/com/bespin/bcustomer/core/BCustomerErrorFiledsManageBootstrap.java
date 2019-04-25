@@ -18,29 +18,26 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Locale;
-import java.util.concurrent.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
- * 开启任务线程
+ * Error - 错误数据处理脚本
  *
  * @author Jason
  */
 @SuppressWarnings("Duplicates")
 @Component
-public class BCustomerManageBootstrap implements ApplicationRunner {
+public class BCustomerErrorFiledsManageBootstrap implements ApplicationRunner {
 
     @Value("${etl.odb.bcustomer.path}")
     private String path;
 
-    @Value("${etl.odb.bcustomer.size}")
-    private int batchSize;
-
     @Autowired
     private BcustomerRepository bcustomerRepository;
 
-    private static Logger logger = LoggerFactory.getLogger(BCustomerManageBootstrap.class);
+    private static Logger logger = LoggerFactory.getLogger(BCustomerErrorFiledsManageBootstrap.class);
 
     /**
      * 日期格式化
@@ -50,111 +47,15 @@ public class BCustomerManageBootstrap implements ApplicationRunner {
     private static final DateTimeFormatter DATE_TIME_FORMATTER_SSS = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS", Locale.UK);
 
 
-    /**
-     * 多线程处理
-     */
-    public static ExecutorService executorService = new ThreadPoolExecutor(5, 10, 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>());
-    public static BlockingQueue queue = new ArrayBlockingQueue(10);
-    public static long threadTime = 0;
-    // 40346
-
-
     @Override
     public void run(ApplicationArguments args) throws IOException, InterruptedException, ClassNotFoundException {
         logger.info("任务开始执行");
         long start = System.currentTimeMillis();
-        // testReadFIle();
-
-        // new Thread(() -> {
-        //     while (true) {
-        //         try {
-        //             Object objTake = queue.take();
-        //             executorService.execute(() -> {
-        //                 long threadStart = System.currentTimeMillis();
-        //                 bcustomerRepository.saveAll((List<BcustomerEntity>) objTake);
-        //                 addTime(System.currentTimeMillis() - threadStart);
-        //             });
-        //         } catch (InterruptedException e) {
-        //             e.printStackTrace();
-        //         }
-        //     }
-        // }).start();
-        // testReadFIleWithThread();
+        testReadFIle();
         logger.info("任务执行时间 : {}", System.currentTimeMillis() - start);
 
     }
 
-    public static void main(String[] args) {
-        System.out.println(0 % 100);
-    }
-
-    private void testReadFIleWithThread() throws IOException, InterruptedException, ClassNotFoundException {
-        try {
-            // File file = new File("/Users/voidm/Downloads/writetest.txt");
-            File file = new File(path);
-            BufferedInputStream fis = new BufferedInputStream(new FileInputStream(file));
-            // 用5M的缓冲读取文本文件
-            BufferedReader reader = new BufferedReader(new InputStreamReader(fis, StandardCharsets.UTF_8), 5 * 1024 * 1024);
-
-            String line;
-            int index = 0;
-            // int successNum = 0;
-            // int errorNum = 0;
-
-            // 开始时间
-            long startTime = System.currentTimeMillis();
-
-            List<BcustomerEntity> batchBuffer = new ArrayList<>(batchSize);
-            while ((line = reader.readLine()) != null) {
-
-                // 过滤第一条,表头
-                if (index == 0) {
-                    index++;
-                    continue;
-                }
-
-                // 处理 1w 条,输出记录一条日志
-                if (index % 10000 == 0) {
-                    logger.info("当前记录数 : {}  , 耗时 : {}", index, Duration.ofMillis(System.currentTimeMillis() - startTime).getSeconds() + " 分");
-                }
-
-                String[] fields = line.split("\\|\\+\\|-\\|", -1);
-                if (fields.length == 64) {
-                    batchBuffer.add(toBcustomerEntity(fields));
-                } else {
-                    logger.error("数据字段不匹配 length: {} , index : {} , Content : {}", fields.length, index, Arrays.toString(fields));
-                }
-                if (batchBuffer.size() >= batchSize) {
-                    // 缓冲区满,批次处理
-                    queue.put(deepCopy(batchBuffer));
-                    batchBuffer.clear();
-                }
-                index++;
-            }
-
-            if (batchBuffer.size() > 0) {
-                // 缓冲剩余,批次处理
-                queue.put(deepCopy(batchBuffer));
-                batchBuffer.clear();
-            }
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw e;
-        }
-    }
-
-    public static <T> List<T> deepCopy(List<T> src) throws IOException, ClassNotFoundException {
-        ByteArrayOutputStream byteOut = new ByteArrayOutputStream();
-        ObjectOutputStream out = new ObjectOutputStream(byteOut);
-        out.writeObject(src);
-
-        ByteArrayInputStream byteIn = new ByteArrayInputStream(byteOut.toByteArray());
-        ObjectInputStream in = new ObjectInputStream(byteIn);
-        @SuppressWarnings("unchecked")
-        List<T> dest = (List<T>) in.readObject();
-        return dest;
-    }
 
     /**
      * 同步增加时间
@@ -169,63 +70,63 @@ public class BCustomerManageBootstrap implements ApplicationRunner {
 
     private void testReadFIle() throws IOException {
         try {
-            // File file = new File("/Users/voidm/Downloads/writetest.txt");
-            File file = new File(path);
+            File file = new File("/Users/voidm/Desktop/BCustomer/error.log");
+            // File file = new File(path);
             BufferedInputStream fis = new BufferedInputStream(new FileInputStream(file));
             // 用5M的缓冲读取文本文件
             BufferedReader reader = new BufferedReader(new InputStreamReader(fis, StandardCharsets.UTF_8), 5 * 1024 * 1024);
 
             String line;
             int index = 0;
-            // int successNum = 0;
-            // int errorNum = 0;
-            List<BcustomerEntity> batchBuffer = new ArrayList<>(batchSize);
-
+            StringBuilder body = new StringBuilder();
             // 开始时间
             long startTime = System.currentTimeMillis();
             while ((line = reader.readLine()) != null) {
 
-                // 过滤第一条,表头
-                if (index == 0) {
-                    index++;
-                    continue;
-                }
-
-                // 处理 1w 条,输出记录一条日志
-                if (index % 10000 == 0) {
-                    logger.info("当前记录数 : {}  , 耗时 : {}", index, Duration.ofMillis(System.currentTimeMillis() - startTime).getSeconds() + " 分");
-                }
-
-                String[] fields = line.split("\\|\\+\\|-\\|", -1);
-                if (fields.length == 64) {
-                    // if (index >= 26300000) {
-                    batchBuffer.add(toBcustomerEntity(fields));
-                    // }
-                } else {
-                    logger.error("数据字段不匹配 length: {} , index : {} , Content : {}", fields.length, index, Arrays.toString(fields));
-                }
-                if (batchBuffer.size() >= batchSize) {
-                    // 缓冲区满,批次处理
-                    try {
-                        bcustomerRepository.saveAll(batchBuffer);
-                    } catch (Exception e) {
-                        logger.error("入库异常 index : {}", index);
-                    }
-                    batchBuffer.clear();
-                }
+                body.append(line);
                 index++;
+                logger.info("当前记录数 : {}  , 耗时 : {}", index, Duration.ofMillis(System.currentTimeMillis() - startTime).getSeconds() + " 分");
             }
 
-            if (batchBuffer.size() > 0) {
-                // 剩余缓冲区处理
-                try {
-                    bcustomerRepository.saveAll(batchBuffer);
-                } catch (Exception e) {
-                    logger.error("入库异常 index : {}", index);
+            final String regex = "Content : \\[(.*?)\\]";
+            final Pattern pattern = Pattern.compile(regex, Pattern.MULTILINE);
+            final Matcher matcher = pattern.matcher(body.toString());
+
+            ArrayList<String> lines = new ArrayList<>();
+            while (matcher.find()) {
+                System.out.println("完整匹配: " + matcher.group(0));
+                for (int i = 1; i <= matcher.groupCount(); i++) {
+                    lines.add(matcher.group(i));
                 }
-                batchBuffer.clear();
             }
-            logger.info("入库完毕 index : {} ", index);
+
+            logger.info("一共行号 :{}", lines.size());
+
+            ArrayList<String[]> successLine = new ArrayList<>();
+
+            for (int i = 0; i < lines.size(); i++) {
+                StringBuilder tmp = new StringBuilder(lines.get(i));
+                for (int j = i + 1; j < lines.size(); j++) {
+                    tmp.append(lines.get(j));
+                    i++;
+                    String[] split = tmp.toString().split(", ");
+                    if (split.length >= 64) {
+                        successLine.add(split);
+                        break;
+                    }
+                }
+            }
+
+            logger.info("successLine.length : {}", successLine.size());
+            for (int i = 0; i < successLine.size(); i++) {
+                String[] fields = successLine.get(i);
+                try {
+                    bcustomerRepository.save(toBcustomerEntity(fields));
+                    logger.info("入库成功 : index : {}", i);
+                } catch (Exception e) {
+                    logger.error("入库失败 : index : {} , Content : {}", i, Arrays.toString(fields));
+                }
+            }
 
         } catch (Exception e) {
             e.printStackTrace();

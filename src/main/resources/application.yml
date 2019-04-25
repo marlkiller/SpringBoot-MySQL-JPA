@@ -4,13 +4,13 @@ spring:
     show-sql: false
     hibernate:
       ddl-auto: update
-#  datasource:
-#    driver-class-name: com.mysql.cj.jdbc.Driver
-#    jdbcUrl: jdbc:mysql://voidm.com:3306/ikea_log
-#    username: ikea_log
-#    password: 363636
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    jdbcUrl: jdbc:mysql://rm-uf607u6wn6c3b792h.mysql.rds.aliyuncs.com:3306/membero
-    username: api_odb
-    password: Ikea123456789
+    jdbcUrl: jdbc:mysql://voidm.com:3306/ikea_log
+    username: ikea_log
+    password: 363636
+#  datasource:
+#    driver-class-name: com.mysql.cj.jdbc.Driver
+#    jdbcUrl: jdbc:mysql://rm-uf607u6wn6c3b792h.mysql.rds.aliyuncs.com:3306/membero
+#    username: api_odb
+#    password: Ikea123456789
