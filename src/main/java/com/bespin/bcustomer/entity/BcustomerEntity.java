@@ -1,6 +1,7 @@
 package com.bespin.bcustomer.entity;
 
 import javax.persistence.*;
+import java.io.Serializable;
 import java.sql.Timestamp;
 import java.util.Objects;
 
@@ -12,7 +13,7 @@ import java.util.Objects;
  */
 @Entity
 @Table(name = "bcustomer")
-public class BcustomerEntity {
+public class BcustomerEntity implements Serializable {
 
     private int cstId;
     private Integer cstBdgId;
