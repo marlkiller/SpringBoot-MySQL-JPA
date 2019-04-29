@@ -12,7 +12,7 @@ import java.util.Objects;
  * @date 2019-04-24
  */
 @Entity
-@Table(name = "bcustomer")
+@Table(name = "bcustomer_20190426")
 public class BcustomerEntity implements Serializable {
 
     private int cstId;

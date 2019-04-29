@@ -8,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -16,19 +15,16 @@ import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
- * 开启任务线程
+ * 开启任务线程-4.26
  *
  * @author Jason
  */
 @SuppressWarnings("Duplicates")
-@Component
+// @Component
 public class BCustomerManageBootstrap implements ApplicationRunner {
 
     @Value("${etl.odb.bcustomer.path}")
@@ -84,9 +80,6 @@ public class BCustomerManageBootstrap implements ApplicationRunner {
 
     }
 
-    public static void main(String[] args) {
-        System.out.println(0 % 100);
-    }
 
     private void testReadFIleWithThread() throws IOException, InterruptedException, ClassNotFoundException {
         try {

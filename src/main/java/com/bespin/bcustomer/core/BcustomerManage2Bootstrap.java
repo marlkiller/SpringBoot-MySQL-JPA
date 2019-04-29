@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
+import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -17,26 +18,31 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
- * Error - 错误数据处理脚本
+ * 开启任务线程
  *
  * @author Jason
  */
 @SuppressWarnings("Duplicates")
-// @Component
-public class BCustomerErrorFiledsManageBootstrap implements ApplicationRunner {
+@Component
+public class BcustomerManage2Bootstrap implements ApplicationRunner {
 
     @Value("${etl.odb.bcustomer.path}")
     private String path;
 
+    @Value("${etl.odb.bcustomer.size}")
+    private int batchSize;
+
     @Autowired
     private BcustomerRepository bcustomerRepository;
 
-    private static Logger logger = LoggerFactory.getLogger(BCustomerErrorFiledsManageBootstrap.class);
+    private static Logger logger = LoggerFactory.getLogger(BcustomerManage2Bootstrap.class);
+
+    public static final String LING_REG = "|-|";
+    public static final String FIELD_REG = "\\|\\+\\|";
 
     /**
      * 日期格式化
@@ -52,80 +58,75 @@ public class BCustomerErrorFiledsManageBootstrap implements ApplicationRunner {
         long start = System.currentTimeMillis();
         testReadFIle();
         logger.info("任务执行时间 : {}", System.currentTimeMillis() - start);
-
-    }
-
-
-    /**
-     * 同步增加时间
-     *
-     * @param threadTime
-     */
-    private static synchronized void addTime(long threadTime) {
-        threadTime += threadTime;
-        logger.info("线程执行总时间 : {}", threadTime);
     }
 
 
     private void testReadFIle() throws IOException {
         try {
-            File file = new File("/Users/voidm/Desktop/BCustomer/error.log");
-            // File file = new File(path);
+            // File file = new File("/Users/voidm/Downloads/writetest.txt");
+            File file = new File("/Users/voidm/Desktop/tmp/HISTORYVAL_ODB_20190429_BCUSTOMER_2400_2.XML");
             BufferedInputStream fis = new BufferedInputStream(new FileInputStream(file));
             // 用5M的缓冲读取文本文件
             BufferedReader reader = new BufferedReader(new InputStreamReader(fis, StandardCharsets.UTF_8), 5 * 1024 * 1024);
 
             String line;
             int index = 0;
-            StringBuilder body = new StringBuilder();
+            // int successNum = 0;
+            // int errorNum = 0;
+            List<BcustomerEntity> batchBuffer = new ArrayList<>(batchSize);
             // 开始时间
             long startTime = System.currentTimeMillis();
             while ((line = reader.readLine()) != null) {
 
-                body.append(line);
-                index++;
-                logger.info("当前记录数 : {}  , 耗时 : {}", index, Duration.ofMillis(System.currentTimeMillis() - startTime).getSeconds() + " 分");
-            }
-
-            final String regex = "Content : \\[(.*?)\\]";
-            final Pattern pattern = Pattern.compile(regex, Pattern.MULTILINE);
-            final Matcher matcher = pattern.matcher(body.toString());
-
-            ArrayList<String> lines = new ArrayList<>();
-            while (matcher.find()) {
-                System.out.println("完整匹配: " + matcher.group(0));
-                for (int i = 1; i <= matcher.groupCount(); i++) {
-                    lines.add(matcher.group(i));
+                // 过滤第一条,表头
+                if (index == 0) {
+                    index++;
+                    continue;
                 }
-            }
 
-            logger.info("一共行号 :{}", lines.size());
+                // 过滤换行字段
+                if (!line.contains(LING_REG)) {
+                    logger.error("行结尾 有异常 Content : {}", line);
+                    index++;
+                    continue;
+                }
 
-            ArrayList<String[]> successLine = new ArrayList<>();
+                line = line.replace("|-|", "");
+                // 处理 1w 条,输出记录一条日志
+                if (index % 10000 == 0) {
+                    logger.info("当前记录数 : {}  , 耗时 : {}", index, Duration.ofMillis(System.currentTimeMillis() - startTime).getSeconds() + " 分");
+                }
 
-            for (int i = 0; i < lines.size(); i++) {
-                StringBuilder tmp = new StringBuilder(lines.get(i));
-                for (int j = i + 1; j < lines.size(); j++) {
-                    tmp.append(lines.get(j));
-                    i++;
-                    String[] split = tmp.toString().split(", ");
-                    if (split.length >= 64) {
-                        successLine.add(split);
-                        break;
+                String[] fields = line.split(FIELD_REG, -1);
+                if (fields.length == 64) {
+                    // if (index >= 26300000) {
+                    batchBuffer.add(toBcustomerEntity(fields));
+                    // }
+                } else {
+                    logger.error("数据字段不匹配 length: {} , index : {} , Content : {}", fields.length, index, Arrays.toString(fields));
+                }
+                if (batchBuffer.size() >= batchSize) {
+                    // 缓冲区满,批次处理
+                    try {
+                        bcustomerRepository.saveAll(batchBuffer);
+                    } catch (Exception e) {
+                        logger.error("入库异常 index : {}, Msg : {}", index, e.getMessage());
                     }
+                    batchBuffer.clear();
                 }
+                index++;
             }
 
-            logger.info("successLine.length : {}", successLine.size());
-            for (int i = 0; i < successLine.size(); i++) {
-                String[] fields = successLine.get(i);
+            if (batchBuffer.size() > 0) {
+                // 剩余缓冲区处理
                 try {
-                    bcustomerRepository.save(toBcustomerEntity(fields));
-                    logger.info("入库成功 : index : {}", i);
+                    bcustomerRepository.saveAll(batchBuffer);
                 } catch (Exception e) {
-                    logger.error("入库失败 : index : {} , Content : {}", i, Arrays.toString(fields));
+                    logger.error("入库异常 index : {}, Msg : {}", index, e.getMessage());
                 }
+                batchBuffer.clear();
             }
+            logger.info("入库完毕 index : {} ", index);
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -214,7 +215,6 @@ public class BCustomerErrorFiledsManageBootstrap implements ApplicationRunner {
             bcustomerEntity.setCstUpdateuid(fields[63]);
         } catch (Exception e) {
             logger.error("数据转换异常 : Msg : {},Content : {}", e.getMessage(), Arrays.toString(fields));
-            // e.printStackTrace();
         }
         return bcustomerEntity;
     }
@@ -262,6 +262,7 @@ public class BCustomerErrorFiledsManageBootstrap implements ApplicationRunner {
      * 处理特殊字符
      * \xF0\x9F\x98\x82\xF0\x9F…
      * \xF0\x9F\x90\xBB\xE5\xA4
+     * \xF0\xA0\x82\x86
      *
      * @param content
      * @return
